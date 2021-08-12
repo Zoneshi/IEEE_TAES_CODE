@@ -10,6 +10,7 @@ RungeKutta::RungeKutta(const con_para &para){
     m_current_time = para.initial_time;
     m_time_step    = para.time_step;
     m_states       = para.initial_states;
+    m_Ib           = para.Ib;
     cout << "Configuration Completed!" << endl;
 }
 
@@ -69,24 +70,63 @@ void RungeKutta::Integrate(){
  * @return VectorXd 
  */
 VectorXd RungeKutta::differential_equation(const double &t, const VectorXd &x){
-    // parse states
-    double pos = x(0);
-    double vel = x(1);
-    double theta1 = x(2);
-    double theta2 = x(3);
-    double gamma = 2;
+    /**
+     *  PARSE SYSTEM STATES
+     */
+    //angular velocity: omega
+    Vector3d omega(x(0),x(1),x(2)); 
 
-    // construct control input
-    double s = pos + vel;
-    double u = -4*s - theta1 * pos - theta2 * vel;
-    // system dynamics
-    double dx1 = vel;
-    double dx2 = 2*pos - 1*vel + u;
-    double dtheta1 = gamma * pos * s;
-    double dtheta2 = gamma * vel * s;
-    // return dot_x
+    // augmented angular velocity: omega_bar
+    Quaterniond omega_bar(0,0.5*omega.x(),0.5*omega.y(),0.5*omega.z()); 
+
+    // current attitude: q
+    Quaterniond q(x(3),x(4),x(5),x(6));
+    q = q.normalized();
+
+    // desired attitude: qd
+    Quaterniond qd(1.0,0.0,0.0,0.0);
+
+    // desired angular velocity: omega_d
+    Vector3d omega_d(0.0,0.0,0.0);
+
+    // constant but unknown moment of inertia: Ib
+    Matrix3d Ib = m_Ib.asDiagonal();
+
+    // aerodynamic torque
+    Vector3d MA(0.0,0.0,0.0);
+
+    /**
+     *  USER DEFINED AREA: TO CONSTRUCT A CONTROL SIGNAL!
+     */
+    // quaternion tracking error: qe        [Eq.(42)]
+    Quaterniond qe = qd.inverse() * q; 
+    qe = qe.normalized();
+
+    // error angular velocity: omega_e      [Eq.(44)]
+    Vector3d omega_e = omega - qe.toRotationMatrix().transpose()*omega_d;
+
+    // reference angular velocity: omega_r  [Eq.(45)]
+    Vector3d omega_r = qe.toRotationMatrix().transpose()*omega_d - q.vec();
+
+    // auxiliary angular velocity: omega_a  [Eq.(46)]
+    Vector3d omega_a = omega - omega_r;
+
+    // control torque: MT                   [Eq.(50)]
+    Vector3d MT = Ib*(-2*omega_a - 2*q.vec()-Ib.inverse()*omega.cross(Ib*omega));
+
+    /**
+     * SYSTEM DYNAMICS
+     */
+    // rotational dynamics: dot_omega       [Eq.(11)]
+    Vector3d dot_omega = Ib.inverse()*(MT + MA - omega.cross(Ib*omega));
+
+    // attitude dynamics: dot_q             [Eq.(14)]
+    Quaterniond dot_q  = q * omega_bar;
+
+    /**
+     *  RETURN VALUES
+     */
     VectorXd dot_x(x.size());
-    dot_x << dx1, dx2, dtheta1, dtheta2;
-
+    dot_x << dot_omega, dot_q.w(), dot_q.vec();
     return dot_x;
 }
