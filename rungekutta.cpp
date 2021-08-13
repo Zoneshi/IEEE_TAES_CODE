@@ -70,9 +70,9 @@ void RungeKutta::Integrate(){
  * @return VectorXd 
  */
 VectorXd RungeKutta::differential_equation(const double &t, const VectorXd &x){
-    /**
-     *  PARSE SYSTEM STATES
-     */
+    //*****************************************************************************
+    //  PARSE SYSTEM STATES
+    //*****************************************************************************
     //angular velocity: omega
     Vector3d omega(x(0),x(1),x(2)); 
 
@@ -82,6 +82,10 @@ VectorXd RungeKutta::differential_equation(const double &t, const VectorXd &x){
     // current attitude: q
     Quaterniond q(x(3),x(4),x(5),x(6));
     q = q.normalized();
+
+    // current adaptivce gains
+    VectorXd theta(6);
+    theta << x(7), x(8), x(9), x(10), x(11), x(12);
 
     // desired attitude: qd
     Quaterniond qd(1.0,0.0,0.0,0.0);
@@ -95,9 +99,15 @@ VectorXd RungeKutta::differential_equation(const double &t, const VectorXd &x){
     // aerodynamic torque
     Vector3d MA(0.0,0.0,0.0);
 
-    /**
-     *  USER DEFINED AREA: TO CONSTRUCT A CONTROL SIGNAL!
-     */
+    // regression matrix Y2
+    Vector3d Y2(omega.y()*omega.z(),omega.x()*omega.z(),omega.x()*omega.y());
+
+    // regression matrix Y_omega
+    Matrix<double,3,6> Y_omega;
+
+    //*****************************************************************************
+    //  USER DEFINED AREA: TO CONSTRUCT A CONTROL SIGNAL!
+    //*****************************************************************************
     // quaternion tracking error: qe        [Eq.(42)]
     Quaterniond qe = qd.inverse() * q; 
     qe = qe.normalized();
@@ -113,20 +123,24 @@ VectorXd RungeKutta::differential_equation(const double &t, const VectorXd &x){
 
     // control torque: MT                   [Eq.(50)]
     Vector3d MT = Ib*(-2*omega_a - 2*q.vec()-Ib.inverse()*omega.cross(Ib*omega));
-
-    /**
-     * SYSTEM DYNAMICS
-     */
+    
+    //*****************************************************************************
+    // SYSTEM DYNAMICS
+    //*****************************************************************************
     // rotational dynamics: dot_omega       [Eq.(11)]
     Vector3d dot_omega = Ib.inverse()*(MT + MA - omega.cross(Ib*omega));
 
     // attitude dynamics: dot_q             [Eq.(14)]
     Quaterniond dot_q  = q * omega_bar;
 
-    /**
-     *  RETURN VALUES
-     */
+    // adaptive law: dot_theta
+    VectorXd dot_theta(6);
+    dot_theta = Y_omega.transpose()*omega_a;
+
+    //*****************************************************************************
+    //  RETURN VALUES
+    //*****************************************************************************
     VectorXd dot_x(x.size());
-    dot_x << dot_omega, dot_q.w(), dot_q.vec();
+    dot_x << dot_omega, dot_q.w(), dot_q.vec(), dot_theta;
     return dot_x;
 }

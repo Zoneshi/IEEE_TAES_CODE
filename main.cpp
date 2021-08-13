@@ -8,11 +8,16 @@ int main(){
     // ofstream save_file(save_path);
     // save_file <<"time,pos,vel"<<endl;
 
-    // system dimensions
-    int num_states = 7;
+    // system dimensions: omega 3, q 4, theta 6
+    int num_states = 13;
+    // initial angular velocity 
     Vector3d omega0(1.0,0.0,0.0);
+    // initial attitude quaternion
     Quaterniond q0(1.0,0.0,0.0,0.0);
     q0 = q0.normalized();
+    // initial adaptive gains
+    VectorXd theta0(6);
+    theta0 << 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
 
     // config system 
     con_para conpara;
@@ -20,19 +25,19 @@ int main(){
     conpara.initial_time   = 0.0;
     conpara.Ib             = Vector3d(1.0,2.0,2.0);
     conpara.initial_states = VectorXd(num_states);
-    conpara.initial_states << omega0, q0.w(), q0.vec();
+    conpara.initial_states << omega0, q0.w(), q0.vec(), theta0;
 
     // constuct simulation instance
     RungeKutta rotor = RungeKutta(conpara);
     
     // simulation final time
-    const double time_final = 15.0;
+    const double time_final = 10.0;
 
     // system states
     VectorXd sysStates(conpara.initial_states.size());
 
     // config output format
-    cout.precision(6);
+    cout.precision(3);
     cout.flags(ios::fixed);
     cout.setf(ios::right);
 
