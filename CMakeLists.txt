@@ -1,9 +1,12 @@
-cmake_minimum_required(VERSION 3.16)
+﻿# CMakeList.txt: 顶层 CMake 项目文件，在此处执行全局配置
+# 并包含子项目。
+#
+cmake_minimum_required (VERSION 3.8)
 
-project(IEEE_TAES)
+project ("RotorCraft")
 
-find_package(Eigen3 REQUIRED)
+set(CMAKE_CXX_STANDARD 17)
 
-add_executable(adaptive main.cpp rungekutta.cpp)
-
-target_link_libraries(adaptive Eigen3::Eigen)
+include_directories("D:/VSCode/Library/eigen3")
+# 包含子项目。
+add_subdirectory ("src")
