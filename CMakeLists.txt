@@ -7,6 +7,6 @@ project ("RotorCraft")
 
 set(CMAKE_CXX_STANDARD 17)
 
-include_directories("D:/VSCode/Library/eigen3")
+find_package(Eigen3 REQUIRED)
 # 包含子项目。
 add_subdirectory ("src")
